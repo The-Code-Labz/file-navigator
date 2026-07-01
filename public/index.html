@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>File Navigator</title>
+<style>
+  :root {
+    --bg: #f3f4f6; --panel: #ffffff; --border: #e5e7eb; --text: #1f2937;
+    --muted: #6b7280; --accent: #2563eb; --accent-soft: #dbeafe;
+    --danger: #dc2626; --bar-bg: #eef2ff; --bar: #6366f1; --hover: #f9fafb;
+  }
+  [data-theme="dark"] {
+    --bg: #0f172a; --panel: #1e293b; --border: #334155; --text: #e2e8f0;
+    --muted: #94a3b8; --accent: #3b82f6; --accent-soft: #1e3a5f;
+    --danger: #ef4444; --bar-bg: #1e293b; --bar: #6366f1; --hover: #263449;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .logo { font-size: 20px; }
+  header .spacer { flex: 1; }
+  button, .btn {
+    font: inherit; cursor: pointer; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); border-radius: 6px;
+    padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  button:hover { background: var(--hover); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.danger { color: var(--danger); }
+  .layout { display: flex; height: calc(100vh - 53px); }
+  .sidebar {
+    width: 280px; background: var(--panel); border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 12px; flex-shrink: 0;
+  }
+  .sidebar h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); margin: 4px 0 10px; letter-spacing: .5px; }
+  .disk {
+    margin-bottom: 14px; padding: 10px; border: 1px solid var(--border); border-radius: 8px;
+  }
+  .disk .mount { font-weight: 600; font-size: 13px; margin-bottom: 2px; word-break: break-all; }
+  .disk .fs { font-size: 11px; color: var(--muted); margin-bottom: 6px; word-break: break-all; }
+  .bar { height: 8px; background: var(--bar-bg); border-radius: 4px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--bar); }
+  .bar.high > span { background: var(--danger); }
+  .disk .meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .toolbar {
+    display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap;
+  }
+  .crumbs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 13px; }
+  .crumbs a { color: var(--accent); cursor: pointer; text-decoration: none; padding: 2px 4px; border-radius: 4px; }
+  .crumbs a:hover { background: var(--accent-soft); }
+  .crumbs .sep { color: var(--muted); }
+  .content { flex: 1; overflow-y: auto; padding: 8px 16px 40px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 8px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr.row:hover { background: var(--hover); }
+  .name { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .name .icon { font-size: 16px; width: 20px; text-align: center; }
+  .name.dir { color: var(--accent); font-weight: 500; }
+  .usebar { width: 120px; height: 6px; background: var(--bar-bg); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; }
+  .usebar > span { display: block; height: 100%; background: var(--bar); }
+  .size { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .actions { text-align: right; white-space: nowrap; }
+  .actions button { padding: 3px 8px; font-size: 12px; }
+  .muted { color: var(--muted); }
+  .empty { text-align: center; padding: 60px; color: var(--muted); }
+  .badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+  .drop { border: 2px dashed var(--accent); background: var(--accent-soft); }
+  #toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 8px;
+    opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 100;
+  }
+  #toast.show { opacity: 1; }
+  .spin { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">🗂️</span>
+  <h1>File Navigator</h1>
+  <span id="hostinfo" class="muted"></span>
+  <span class="spacer"></span>
+  <span id="ro-badge"></span>
+  <button id="usage-btn">📊 Analyze Sizes</button>
+  <button id="theme-btn">🌓</button>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h2>Disks</h2>
+    <div id="disks"><span class="muted">Loading…</span></div>
+  </aside>
+
+  <div class="main">
+    <div class="toolbar" id="toolbar">
+      <div class="crumbs" id="crumbs"></div>
+      <span class="spacer" style="flex:1"></span>
+      <button id="up-btn">⬆️ Up</button>
+      <button id="mkdir-btn" class="wr">📁 New Folder</button>
+      <button id="upload-btn" class="primary wr">⬆️ Upload</button>
+      <input type="file" id="file-input" multiple style="display:none" />
+    </div>
+    <div class="content" id="content">
+      <div class="empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let state = { path: '/', readonly: false, usageMode: false };
+
+function fmtBytes(n) {
+  if (n === null || n === undefined) return '';
+  if (n === 0) return '0 B';
+  const u = ['B','KB','MB','GB','TB','PB'];
+  const i = Math.floor(Math.log(n) / Math.log(1024));
+  return (n / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + u[i];
+}
+function fmtDate(ms) {
+  return new Date(ms).toLocaleString();
+}
+function icon(entry) {
+  if (entry.type === 'directory') return '📁';
+  if (entry.type === 'symlink') return '🔗';
+  const ext = entry.name.split('.').pop().toLowerCase();
+  if (['png','jpg','jpeg','gif','webp','svg','bmp'].includes(ext)) return '🖼️';
+  if (['mp4','mkv','mov','avi','webm'].includes(ext)) return '🎬';
+  if (['mp3','wav','flac','ogg','m4a'].includes(ext)) return '🎵';
+  if (['zip','tar','gz','rar','7z','xz'].includes(ext)) return '🗜️';
+  if (['pdf'].includes(ext)) return '📕';
+  if (['js','ts','py','go','rs','java','c','cpp','sh','json','html','css','md'].includes(ext)) return '📜';
+  return '📄';
+}
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) {
+    let e = 'Request failed';
+    try { e = (await r.json()).error || e; } catch {}
+    throw new Error(e);
+  }
+  return r.json();
+}
+
+function renderCrumbs() {
+  const parts = state.path.split('/').filter(Boolean);
+  const c = $('#crumbs');
+  c.innerHTML = '';
+  const rootLink = document.createElement('a');
+  rootLink.textContent = '🏠 root';
+  rootLink.onclick = () => navigate('/');
+  c.appendChild(rootLink);
+  let acc = '';
+  parts.forEach((p) => {
+    acc += '/' + p;
+    const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = '›';
+    const a = document.createElement('a'); a.textContent = p;
+    const target = acc;
+    a.onclick = () => navigate(target);
+    c.appendChild(sep); c.appendChild(a);
+  });
+}
+
+async function loadDisks() {
+  try {
+    const { disks } = await api('/api/disks');
+    const el = $('#disks');
+    el.innerHTML = '';
+    disks.forEach((d) => {
+      const pct = d.size ? Math.round((d.used / d.size) * 100) : 0;
+      const div = document.createElement('div');
+      div.className = 'disk';
+      div.innerHTML = `
+        <div class="mount">${d.mount}</div>
+        <div class="fs">${d.filesystem}</div>
+        <div class="bar ${pct > 85 ? 'high' : ''}"><span style="width:${pct}%"></span></div>
+        <div class="meta">${fmtBytes(d.used)} / ${fmtBytes(d.size)} · ${pct}% used · ${fmtBytes(d.available)} free</div>`;
+      el.appendChild(div);
+    });
+  } catch (e) {
+    $('#disks').innerHTML = `<span class="muted">${e.message}</span>`;
+  }
+}
+
+async function loadHealth() {
+  try {
+    const h = await api('/api/health');
+    $('#hostinfo').textContent = `${h.hostname} · ${h.platform} · root: ${h.root}`;
+    state.readonly = h.readonly;
+    if (h.readonly) {
+      $('#ro-badge').innerHTML = '<span class="badge" style="background:#fee2e2;color:#dc2626">READ-ONLY</span>';
+      document.querySelectorAll('.wr').forEach((b) => b.style.display = 'none');
+    }
+  } catch {}
+}
+
+async function navigate(p) {
+  state.path = p;
+  state.usageMode = false;
+  renderCrumbs();
+  $('#content').innerHTML = '<div class="empty"><span class="spin">⏳</span> Loading…</div>';
+  try {
+    const data = await api('/api/list?path=' + encodeURIComponent(p));
+    renderList(data.entries);
+  } catch (e) {
+    $('#content').innerHTML = `<div class="empty">⚠️ ${e.message}</div>`;
+  }
+}
+
+function renderList(entries) {
+  if (!entries.length) {
+    $('#content').innerHTML = '<div class="empty">📭 Empty folder</div>';
+    return;
+  }
+  const table = document.createElement('table');
+  table.innerHTML = `<thead><tr>
+    <th>Name</th><th class="size">Size</th><th>Modified</th><th class="actions">Actions</th>
+  </tr></thead><tbody></tbody>`;
+  const tb = table.querySelector('tbody');
+  entries.forEach((e) => {
+    const tr = document.createElement('tr'); tr.className = 'row';
+    const nameCell = document.createElement('td');
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'name' + (e.type === 'directory' ? ' dir' : '');
+    nameDiv.innerHTML = `<span class="icon">${icon(e)}</span><span>${e.name}</span>`;
+    if (e.type === 'directory') nameDiv.onclick = () => navigate(e.path);
+    else nameDiv.onclick = () => window.open('/api/raw?path=' + encodeURIComponent(e.path), '_blank');
+    nameCell.appendChild(nameDiv);
+
+    const sizeCell = document.createElement('td');
+    sizeCell.className = 'size';
+    sizeCell.textContent = e.type === 'directory' ? '—' : fmtBytes(e.size);
+
+    const dateCell = document.createElement('td');
+    dateCell.className = 'muted';
+    dateCell.textContent = fmtDate(e.mtime);
+
+    const actCell = document.createElement('td');
+    actCell.className = 'actions';
+    if (e.type === 'file') {
+      const dl = document.createElement('button');
+      dl.textContent = '⬇️';
+      dl.title = 'Download';
+      dl.onclick = () => window.open('/api/download?path=' + encodeURIComponent(e.path), '_blank');
+      actCell.appendChild(dl);
+    }
+    if (!state.readonly) {
+      const rn = document.createElement('button');
+      rn.textContent = '✏️'; rn.title = 'Rename';
+      rn.onclick = () => renameEntry(e);
+      actCell.appendChild(rn);
+      const del = document.createElement('button');
+      del.className = 'danger'; del.textContent = '🗑️'; del.title = 'Delete';
+      del.onclick = () => deleteEntry(e);
+      actCell.appendChild(del);
+    }
+
+    tr.appendChild(nameCell); tr.appendChild(sizeCell); tr.appendChild(dateCell); tr.appendChild(actCell);
+    tb.appendChild(tr);
+  });
+  $('#content').innerHTML = '';
+  $('#content').appendChild(table);
+}
+
+async function analyzeUsage() {
+  state.usageMode = true;
+  $('#content').innerHTML = '<div class="empty"><span class="spin">⏳</span> Scanning folder sizes… (large trees may take a moment)</div>';
+  try {
+    const data = await api('/api/usage?path=' + encodeURIComponent(state.path));
+    renderUsage(data);
+  } catch (e) {
+    $('#content').innerHTML = `<div class="empty">⚠️ ${e.message}</div>`;
+  }
+}
+
+function renderUsage(data) {
+  const max = data.children.length ? data.children[0].size : 1;
+  const table = document.createElement('table');
+  table.innerHTML = `<thead><tr>
+    <th>Name</th><th style="width:140px">Usage</th><th class="size">Size</th><th class="size">% of total</th><th class="actions">Actions</th>
+  </tr></thead><tbody></tbody>`;
+  const tb = table.querySelector('tbody');
+  data.children.forEach((e) => {
+    const tr = document.createElement('tr'); tr.className = 'row';
+    const pctOfMax = max ? (e.size / max) * 100 : 0;
+    const pctOfTotal = data.total ? ((e.size / data.total) * 100).toFixed(1) : '0';
+    const nameCell = document.createElement('td');
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'name' + (e.type === 'directory' ? ' dir' : '');
+    nameDiv.innerHTML = `<span class="icon">${e.type === 'directory' ? '📁' : '📄'}</span><span>${e.name}</span>${e.truncated ? ' <span class="badge">partial</span>' : ''}`;
+    if (e.type === 'directory') nameDiv.onclick = () => navigate(e.path);
+    nameCell.appendChild(nameDiv);
+
+    const barCell = document.createElement('td');
+    barCell.innerHTML = `<span class="usebar"><span style="width:${pctOfMax}%"></span></span>`;
+
+    const sizeCell = document.createElement('td'); sizeCell.className = 'size'; sizeCell.textContent = fmtBytes(e.size);
+    const pctCell = document.createElement('td'); pctCell.className = 'size muted'; pctCell.textContent = pctOfTotal + '%';
+
+    const actCell = document.createElement('td'); actCell.className = 'actions';
+    if (!state.readonly) {
+      const del = document.createElement('button');
+      del.className = 'danger'; del.textContent = '🗑️';
+      del.onclick = () => deleteEntry(e);
+      actCell.appendChild(del);
+    }
+
+    tr.appendChild(nameCell); tr.appendChild(barCell); tr.appendChild(sizeCell); tr.appendChild(pctCell); tr.appendChild(actCell);
+    tb.appendChild(tr);
+  });
+  const header = document.createElement('div');
+  header.style.cssText = 'padding:8px 0;color:var(--muted)';
+  header.innerHTML = `📊 Total: <strong>${fmtBytes(data.total)}</strong> across ${data.children.length} items · ${data.scanned.toLocaleString()} files scanned ${data.truncated ? '· <span class="badge">scan limit reached</span>' : ''}`;
+  $('#content').innerHTML = '';
+  $('#content').appendChild(header);
+  $('#content').appendChild(table);
+}
+
+async function deleteEntry(e) {
+  if (!confirm(`Delete "${e.name}"?${e.type === 'directory' ? '\n\nThis will delete the folder and ALL its contents.' : ''}`)) return;
+  try {
+    await api('/api/delete', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ path: e.path }) });
+    toast('Deleted ' + e.name);
+    state.usageMode ? analyzeUsage() : navigate(state.path);
+    loadDisks();
+  } catch (err) { toast('⚠️ ' + err.message); }
+}
+
+async function renameEntry(e) {
+  const newName = prompt('Rename to:', e.name);
+  if (!newName || newName === e.name) return;
+  const parent = state.path === '/' ? '' : state.path;
+  try {
+    await api('/api/rename', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ from: e.path, to: parent + '/' + newName }) });
+    toast('Renamed');
+    navigate(state.path);
+  } catch (err) { toast('⚠️ ' + err.message); }
+}
+
+async function mkdir() {
+  const name = prompt('New folder name:');
+  if (!name) return;
+  try {
+    await api('/api/mkdir', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ path: state.path, name }) });
+    toast('Folder created');
+    navigate(state.path);
+  } catch (err) { toast('⚠️ ' + err.message); }
+}
+
+async function uploadFiles(files) {
+  if (!files.length) return;
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  toast(`Uploading ${files.length} file(s)…`);
+  try {
+    const r = await api('/api/upload?path=' + encodeURIComponent(state.path), { method: 'POST', body: fd });
+    toast(`Uploaded ${r.uploaded.length} file(s)`);
+    navigate(state.path);
+    loadDisks();
+  } catch (err) { toast('⚠️ ' + err.message); }
+}
+
+function goUp() {
+  if (state.path === '/') return;
+  const parts = state.path.split('/').filter(Boolean);
+  parts.pop();
+  navigate('/' + parts.join('/'));
+}
+
+// Drag & drop upload
+const content = $('#content');
+['dragover','dragenter'].forEach((ev) => content.addEventListener(ev, (e) => { e.preventDefault(); if (!state.readonly) content.classList.add('drop'); }));
+['dragleave','drop'].forEach((ev) => content.addEventListener(ev, (e) => { e.preventDefault(); content.classList.remove('drop'); }));
+content.addEventListener('drop', (e) => { if (!state.readonly && e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); });
+
+// Wiring
+$('#up-btn').onclick = goUp;
+$('#mkdir-btn').onclick = mkdir;
+$('#usage-btn').onclick = analyzeUsage;
+$('#upload-btn').onclick = () => $('#file-input').click();
+$('#file-input').onchange = (e) => uploadFiles(e.target.files);
+$('#theme-btn').onclick = () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('fn-theme', next);
+};
+document.documentElement.setAttribute('data-theme', localStorage.getItem('fn-theme') || 'light');
+
+// Init
+loadHealth();
+loadDisks();
+navigate('/');
+</script>
+</body>
+</html>

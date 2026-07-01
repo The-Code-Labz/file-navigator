@@ -1,0 +1,19 @@
+{
+  "name": "file-navigator",
+  "version": "1.0.0",
+  "description": "Self-hosted web-based file explorer with disk usage analytics for any Linux server",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.0.1"
+  },
+  "license": "MIT"
+}

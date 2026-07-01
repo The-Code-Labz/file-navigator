@@ -1,0 +1,21 @@
+[Unit]
+Description=File Navigator — web file explorer + disk usage analyzer
+After=network.target
+
+[Service]
+Type=simple
+# --- EDIT THESE ---
+User=root
+WorkingDirectory=/opt/file-navigator
+# ------------------
+Environment=PORT=8080
+Environment=FN_ROOT=/
+# Environment=FN_READONLY=true
+# Environment=FN_USER=admin
+# Environment=FN_PASS=changeme
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
