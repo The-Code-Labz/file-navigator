@@ -1,6 +1,6 @@
 /**
  * File Navigator — self-hosted web file explorer + disk usage analytics
- * Runs on any Linux server. Default port 8080 (override with PORT env).
+ * Runs on any Linux server. Default port 9079 (override with PORT env).
  *
  * Security: restricted to a ROOT directory (default: /). Path traversal is
  * blocked. Set FN_ROOT to jail the app to a subtree, and set FN_READONLY=true
@@ -15,7 +15,7 @@ const fsp = require('fs').promises;
 const path = require('path');
 const os = require('os');
 
-const PORT = parseInt(process.env.PORT || '8080', 10);
+const PORT = parseInt(process.env.PORT || '9079', 10);
 // The filesystem root the app is allowed to browse. Jail here for safety.
 const ROOT = path.resolve(process.env.FN_ROOT || '/');
 const READONLY = String(process.env.FN_READONLY || 'false').toLowerCase() === 'true';

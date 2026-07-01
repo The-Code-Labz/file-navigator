@@ -34,7 +34,7 @@ npm install
 npm start
 ```
 
-Then open **http://<server-ip>:8080** in your browser.
+Then open **http://<server-ip>:9079** in your browser.
 
 That's it. No build step, no database — a single Node process serves both the API and the UI.
 
@@ -46,7 +46,7 @@ All config is via environment variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `PORT` | `8080` | HTTP port to listen on |
+| `PORT` | `9079` | HTTP port to listen on |
 | `FN_ROOT` | `/` | Filesystem root the app may browse. **Set this to jail the app** to a subtree (e.g. `/home/user/data`) |
 | `FN_READONLY` | `false` | When `true`, disables upload / delete / rename / mkdir |
 | `FN_USER` / `FN_PASS` | *(unset)* | Set both to require HTTP Basic auth |

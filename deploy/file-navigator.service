@@ -8,7 +8,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/file-navigator
 # ------------------
-Environment=PORT=8080
+Environment=PORT=9079
 Environment=FN_ROOT=/
 # Environment=FN_READONLY=true
 # Environment=FN_USER=admin
